@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Forfuntnite - Created by Dulas Studios</title>
+<style>
+body { margin:0; overflow:hidden; font-family:sans-serif; background:#222; color:white;}
+#lobby, #game { position:absolute; width:100%; height:100%; display:flex; justify-content:center; align-items:center; flex-direction:column;}
+#game { display:none; background:#333; position:relative;}
+button { padding:10px 20px; margin:5px; font-size:16px; cursor:pointer;}
+#arena { width:800px; height:600px; background:#55aa55; position:relative; overflow:hidden; border:2px solid white;}
+.player, .bot, .bullet, .crate, .wall { position:absolute; width:30px; height:30px; }
+.player { background:blue; }
+.bot { background:red; }
+.bullet { width:8px; height:8px; border-radius:50%; }
+.bullet.pistol { background:yellow; }
+.bullet.rifle { background:orange; }
+.bullet.shotgun { background:brown; }
+.bullet.sniper { background:white; }
+.bullet.smg { background:cyan; }
+.crate { background:orange; width:20px; height:20px; }
+.wall { background:#888; width:30px; height:30px; }
+.hp-bar, .shield-bar { position:absolute; height:5px; }
+.hp-bar { background:red; }
+.shield-bar { background:cyan; }
+#hud { position:absolute; top:5px; left:5px; font-size:16px; }
+label { margin-right:10px; }
+input { width:25px; text-align:center; }
+</style>
+</head>
+<body>
+
+<div id="lobby">
+    <h1>Forfuntnite</h1>
+    <h2>Created by Dulas Studios</h2>
+
+    <div id="skinSelector">
+        <button onclick="changeSkin('blue')">Niebieski</button>
+        <button onclick="changeSkin('green')">Zielony</button>
+        <button onclick="changeSkin('purple')">Fioletowy</button>
+    </div>
+
+    <h3>Ustawienia klawiszy</h3>
+    <div>
+        <label>Budowanie prawo: <input type="text" id="bindRight" value="q" maxlength="1"></label>
+        <label>Budowanie lewo: <input type="text" id="bindLeft" value="e" maxlength="1"></label>
+        <label>Budowanie góra: <input type="text" id="bindUp" value="r" maxlength="1"></label><br>
+        <label>Broń 1: <input type="text" id="bind1" value="1" maxlength="1"></label>
+        <label>Broń 2: <input type="text" id="bind2" value="2" maxlength="1"></label>
+        <label>Broń 3: <input type="text" id="bind3" value="3" maxlength="1"></label>
+        <label>Broń 4: <input type="text" id="bind4" value="4" maxlength="1"></label>
+        <label>Broń 5: <input type="text" id="bind5" value="5" maxlength="1"></label>
+    </div>
+
+    <button onclick="saveBinds()">Zapisz ustawienia</button>
+    <button onclick="startGame()">GRAJ</button>
+</div>
+
+<div id="game">
+    <div id="arena"></div>
+    <div id="hud">Bron: Pistolet</div>
+</div>
+
+<script>
+const arena = document.getElementById('arena');
+const hud = document.getElementById('hud');
+
+// Gracz
+let playerSkin='blue';
+let player={x:400,y:300,width:30,height:30,speed:4,hp:100,shield:50,el:null,hpEl:null,shieldEl:null,weapon:'pistol'};
+
+// Broń
+const weapons = {
+    'pistol': {damage:20, speed:8, name:'Pistolet'},
+    'rifle': {damage:15, speed:10, name:'Karabin'},
+    'shotgun': {damage:50, speed:6, name:'Strzelba'},
+    'sniper': {damage:80, speed:15, name:'Snajperka'},
+    'smg': {damage:10, speed:12, name:'SMG'}
+};
+
+// Boty i elementy gry
+let bots=[];
+let bullets=[];
+let crates=[];
+let walls=[];
+let keys={};
+
+// Bindy
+let keyBinds = {
+    buildRight: 'q',
+    buildLeft: 'e',
+    buildUp: 'r',
+    weapon1: '1',
+    weapon2: '2',
+    weapon3: '3',
+    weapon4: '4',
+    weapon5: '5'
+};
+
+// Lobby funkcje
+function changeSkin(color){playerSkin=color;}
+function saveBinds() {
+    keyBinds.buildRight = document.getElementById('bindRight').value;
+    keyBinds.buildLeft = document.getElementById('bindLeft').value;
+    keyBinds.buildUp = document.getElementById('bindUp').value;
+    keyBinds.weapon1 = document.getElementById('bind1').value;
+    keyBinds.weapon2 = document.getElementById('bind2').value;
+    keyBinds.weapon3 = document.getElementById('bind3').value;
+    keyBinds.weapon4 = document.getElementById('bind4').value;
+    keyBinds.weapon5 = document.getElementById('bind5').value;
+    alert("Ustawienia zapisane!");
+}
+function startGame(){
+    document.getElementById('lobby').style.display='none';
+    document.getElementById('game').style.display='flex';
+    initArena();
+}
+
+// Kolizja
+function isColliding(a,b){
+    return !(a.x+a.width<b.x || a.x>b.x+b.width || a.y+a.height<b.y || a.y>b.y+b.height);
+}
+
+// Arena i inicjalizacja
+function initArena(){
+    const pEl=document.createElement('div'); pEl.className='player'; pEl.style.background=playerSkin;
+    arena.appendChild(pEl); player.el=pEl;
+    const hpEl=document.createElement('div'); hpEl.className='hp-bar'; arena.appendChild(hpEl); player.hpEl=hpEl;
+    const shieldEl=document.createElement('div'); shieldEl.className='shield-bar'; arena.appendChild(shieldEl); player.shieldEl=shieldEl;
+
+    // Boty
+    for(let i=0;i<30;i++){
+        const bot={x:Math.random()*770,y:Math.random()*570,width:30,height:30,hp:100,shield:50,el:null,hpEl:null,shieldEl:null,speed:2};
+        const bEl=document.createElement('div'); bEl.className='bot'; arena.appendChild(bEl); bot.el=bEl;
+        const hpEl=document.createElement('div'); hpEl.className='hp-bar'; arena.appendChild(hpEl); bot.hpEl=hpEl;
+        const shieldEl=document.createElement('div'); shieldEl.className='shield-bar'; arena.appendChild(shieldEl); bot.shieldEl=shieldEl;
+        bots.push(bot);
+    }
+
+    // Skrzynie
+    for(let i=0;i<10;i++){
+        const crate={x:Math.random()*780,y:Math.random()*580,width:20,height:20,el:null,type:['hp','shield','pistol','rifle','shotgun','sniper','smg'][Math.floor(Math.random()*7)]};
+        const cEl=document.createElement('div'); cEl.className='crate'; cEl.style.left=crate.x+'px'; cEl.style.top=crate.y+'px'; arena.appendChild(cEl); crate.el=cEl;
+        crates.push(crate);
+    }
+
+    document.addEventListener('keydown', e=>keys[e.key]=true);
+    document.addEventListener('keyup', e=>keys[e.key]=false);
+    arena.addEventListener('click', shootBullet);
+    requestAnimationFrame(gameLoop);
+}
+
+// Strzelanie
+function shootBullet(e){
+    const rect = arena.getBoundingClientRect();
+    const bx = player.x+player.width/2;
+    const by = player.y+player.height/2;
+    const angle=Math.atan2(e.clientY-rect.top-by,e.clientX-rect.left-bx);
+    bullets.push({x:bx,y:by,dx:Math.cos(angle)*weapons[player.weapon].speed,dy:Math.sin(angle)*weapons[player.weapon].speed,owner:'player',weapon:player.weapon});
+}
+
+// Budowanie
+function buildWall(x,y){
+    const wall={x,y,width:30,height:30,el:null};
+    const wEl=document.createElement('div'); wEl.className='wall'; wEl.style.left=x+'px'; wEl.style.top=y+'px'; arena.appendChild(wEl); wall.el=wEl;
+    walls.push(wall);
+}
+
+// Game loop
+function gameLoop(){
+    // Ruch gracza z kolizją
+    let nextX=player.x; let nextY=player.y;
+    if(keys['w']||keys['ArrowUp']) nextY-=player.speed;
+    if(keys['s']||keys['ArrowDown']) nextY+=player.speed;
+    if(keys['a']||keys['ArrowLeft']) nextX-=player.speed;
+    if(keys['d']||keys['ArrowRight']) nextX+=player.speed;
+
+    let canMove=true;
+    walls.forEach(w=>{
+        if(isColliding({...player,x:nextX,y:nextY},w)) canMove=false;
+    });
+    if(canMove){ player.x=nextX; player.y=nextY; }
+
+    player.el.style.left=player.x+'px'; player.el.style.top=player.y+'px';
+    player.hpEl.style.left=player.x+'px'; player.hpEl.style.top=(player.y-10)+'px'; player.hpEl.style.width=player.hp/100*30+'px';
+    player.shieldEl.style.left=player.x+'px'; player.shieldEl.style.top=(player.y-15)+'px'; player.shieldEl.style.width=player.shield/50*30+'px';
+    hud.innerText = "Bron: "+weapons[player.weapon].name;
+
+    // Pociski
+    bullets.forEach((b,i)=>{
+        b.x+=b.dx; b.y+=b.dy;
+        if(b.x<0||b.x>800||b.y<0||b.y>600){ bullets.splice(i,1); return;}
+        if(!b.el){ const bel=document.createElement('div'); bel.className='bullet '+b.weapon; arena.appendChild(bel); b.el=bel;}
+        b.el.style.left=b.x+'px'; b.el.style.top=b.y+'px';
+
+        // Kolizja z botami
+        if(b.owner==='player'){
+            bots.forEach(bot=>{
+                if(isColliding(b,bot)){
+                    if(bot.shield>0){bot.shield-=weapons[b.weapon].damage;} else {bot.hp-=weapons[b.weapon].damage;}
+                    bullets.splice(i,1);
+                }
+            });
+        }
+    });
+
+    // Boty AI + strzelanie
+    bots.forEach(bot=>{
+        const dx=player.x-bot.x; const dy=player.y-bot.y; const dist=Math.sqrt(dx*dx+dy*dy);
+        if(dist>5){ bot.x+=(dx/dist)*bot.speed; bot.y+=(dy/dist)*bot.speed;}
+        if(Math.random()<0.01 && dist<300){
+            const angle=Math.atan2(player.y-bot.y,player.x-bot.x);
+            bullets.push({x:bot.x+15,y:bot.y+15,dx:Math.cos(angle)*6,dy:Math.sin(angle)*6,owner:'bot',weapon:'pistol'});
+        }
+        bot.el.style.left=bot.x+'px'; bot.el.style.top=bot.y+'px';
+        bot.hpEl.style.left=bot.x+'px'; bot.hpEl.style.top=(bot.y-10)+'px'; bot.hpEl.style.width=bot.hp/100*30+'px';
+        bot.shieldEl.style.left=bot.x+'px'; bot.shieldEl.style.top=(bot.y-15)+'px'; bot.shieldEl.style.width=bot.shield/50*30+'px';
+
+        bullets.forEach((b,j)=>{
+            if(b.owner==='bot' && isColliding(b,player)){
+                if(player.shield>0){player.shield-=15;} else {player.hp-=15;}
+                bullets.splice(j,1);
+            }
+        });
+    });
+
+    // Skrzynie – zbieranie
+    crates.forEach((c,i)=>{
+        if(isColliding(player,c)){
+            if(c.type==='hp'){ player.hp=Math.min(100,player.hp+30); }
+            else if(c.type==='shield'){ player.shield=Math.min(50,player.shield+25); }
+            else if(weapons[c.type]){ player.weapon = c.type; }
+            arena.removeChild(c.el);
+            crates.splice(i,1);
+        }
+    });
+
+    // Budowanie i zmiana broni według bindów
+    if(keys[keyBinds.buildRight]) buildWall(player.x+player.width+5, player.y);
+    if(keys[keyBinds.buildLeft]) buildWall(player.x-35, player.y);
+    if(keys[keyBinds.buildUp]) buildWall(player.x, player.y-35);
+    if(keys[keyBinds.weapon1]) player.weapon = 'pistol';
+    if(keys[keyBinds.weapon2]) player.weapon = 'rifle';
+    if(keys[keyBinds.weapon3]) player.weapon = 'shotgun';
+    if(keys[keyBinds.weapon4]) player.weapon = 'sniper';
+    if(keys[keyBinds.weapon5]) player.weapon = 'smg';
+
+    requestAnimationFrame(gameLoop);
+}
+</script>
+
+</body>
+</html>
